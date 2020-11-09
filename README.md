@@ -1,5 +1,5 @@
 # discord-bot-template
-Template for Discord Bots by Hulkermon#1337
+Template for Discord Bots by Hulkermon#1337    
 Built with discord.js
 
 ## Installation
