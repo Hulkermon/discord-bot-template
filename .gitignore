@@ -1,3 +1,6 @@
+# Environments
+environments/*.ts
+
 # Logs
 logs
 *.log
