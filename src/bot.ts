@@ -1,39 +1,19 @@
-import Discord from 'discord.js';
-import { environment } from '../environments/environment.dev';
+import { TwitchService } from './services/twitchService';
+import { DiscordService } from './services/discordService';
+
+const twitchService = new TwitchService();
+const discordService = new DiscordService();
 
 export class Bot {
   /**
-   * connect
-   * Connect the bot to the Discord API and listen for events.
+   * start
+   * Start the Discord and Twitch bots
    */
-  public connect(): Promise<string> {
-    let client = new Discord.Client();
-
-    client.on('ready', () => {
-      console.log(`Logged in as ${client.user?.tag}`);
-    });
-
-    client.on('message', msg => {
-      this.handleMessage(msg);
+  public start() {
+    return new Promise(async (resolve, reject) => {
+      await discordService.setup().catch(reject);
+      await twitchService.setup().catch(reject);
+      resolve();
     })
-
-    return client.login(environment.botToken);
-  }
-
-  /**
-   * handleMessage
-   * Handles the message.
-   * @param msg The message to be handled.
-   */
-  private handleMessage(msg: Discord.Message) {
-    if (msg.author.bot) {
-      // Ignore Messages by Bots
-      return;
-    }
-    if (!environment.production && msg.guild?.id !== environment.guildId) {
-      // Only listen to test server if in dev environment
-      return;
-    }
-    
   }
 }
