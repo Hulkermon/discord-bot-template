@@ -23,7 +23,7 @@ const auth = new RefreshableAuthProvider(new StaticAuthProvider(clientId, access
   }
 );
 
-const chatClient = new ChatClient(auth, { channels: ['hulkermon'] });
+const chatClient = new ChatClient(auth, { channels: ['hulkermon'], requestMembershipEvents: true });
 
 export class TwitchService {
   /**
@@ -48,8 +48,8 @@ export class TwitchService {
   public setupEventHandlers(client: ChatClient) {
     chatClient.onMessage((channel, user, message) => {
       if (message === 'hi') {
-        chatClient.say(channel, 'hello world');
+        chatClient.say(channel, `hello ${user}`);
       }
-    })
+    });
   }
 }

@@ -5,7 +5,6 @@ import { environment } from "../environments/environment.dev";
 
 let bot = new Bot();
 bot.start()
-  .then(() => console.log('All Bots running'))
   .catch(e => console.error('Unhandled Bot Error:', e));
 
 // getToken();
