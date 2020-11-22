@@ -1,5 +1,5 @@
 # Environments
-environments/*.ts
+environments/*
 
 # Logs
 logs

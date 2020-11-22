@@ -46,6 +46,14 @@ export class DiscordService {
       // Only listen to test server if in dev environment
       return;
     }
-    msg.channel.send('hi');
+    this.executeChatCommand(msg);
+  }
+
+  /**
+   * Executes a discord chat command.
+   * @param msg discord message with the command to execute
+   */
+  private executeChatCommand(msg: Discord.Message) {
+    msg.channel.send(`hello ${msg.guild?.members.resolve(msg.author)?.displayName}`);
   }
 }

@@ -1,31 +1,18 @@
 import { environment } from './../../environments/environment.dev';
 import { RefreshableAuthProvider, RefreshConfig, StaticAuthProvider } from 'twitch/lib';
 import { ChatClient } from 'twitch-chat-client';
+import { promises as fs } from 'fs';
 
-const twitchEnv = environment.twitch;
-const clientId = twitchEnv.clientId;
-const accessToken = twitchEnv.accessToken;
 
-const clientSecret = twitchEnv.clientSecret;
-const refreshToken = twitchEnv.refreshToken;
-const tokenExpiryTimestamp = twitchEnv.tokenExpiryTimestamp;
-
-const auth = new RefreshableAuthProvider(new StaticAuthProvider(clientId, accessToken),
-  {
-    clientSecret,
-    refreshToken,
-    expiry: tokenExpiryTimestamp === null ? null : new Date(tokenExpiryTimestamp),
-    onRefresh: ({ accessToken, refreshToken, expiryDate }) => {
-      environment.twitch.accessToken = accessToken;
-      environment.twitch.refreshToken = refreshToken;
-      environment.twitch.tokenExpiryTimestamp = expiryDate === null ? 0 : expiryDate.getTime();
-    }
-  }
-);
-
-const chatClient = new ChatClient(auth, { channels: ['hulkermon'], requestMembershipEvents: true });
+let chatClient: ChatClient;
 
 export class TwitchService {
+
+  constructor() {
+    refreshAuth().then(auth => {
+      chatClient = new ChatClient(auth, { channels: ['hulkermon'], requestMembershipEvents: true });
+    });
+  }
   /**
    * setup
    * Connect the bot to the Twitch API and listen for events.
@@ -33,6 +20,7 @@ export class TwitchService {
   public setup() {
     return new Promise(async (resolve, reject) => {
       await chatClient.connect().catch(reject);
+      console.log(`Logged into Twitch as ${environment.twitch.username}`);
 
       this.setupEventHandlers(chatClient);
 
@@ -52,4 +40,36 @@ export class TwitchService {
       }
     });
   }
+}
+
+function refreshAuth(): Promise<any> {
+  return new Promise(async (resolve, reject) => {
+    fs.readFile('./environments/token.json').then(rawTokenData => {
+      let twitchEnv = environment.twitch;
+      let clientId = twitchEnv.clientId;
+      let clientSecret = twitchEnv.clientSecret;
+
+      let tokenData = JSON.parse(rawTokenData.toString());
+      let accessToken = tokenData.accessToken;
+      let refreshToken = tokenData.refreshToken;
+      let expiryTimestamp = tokenData.expiryTimestamp;
+
+      let auth = new RefreshableAuthProvider(new StaticAuthProvider(clientId, accessToken),
+        {
+          clientSecret,
+          refreshToken,
+          expiry: expiryTimestamp === null ? null : new Date(expiryTimestamp),
+          onRefresh: async ({ accessToken, refreshToken, expiryDate }) => {
+            let newTokenData = {
+              accessToken: accessToken,
+              refreshToken: refreshToken,
+              tokenExpiryTimestamp: expiryDate === null ? 0 : expiryDate.getTime()
+            };
+            await fs.writeFile('./environments/token.json', JSON.stringify(newTokenData, null, 4), 'utf-8');
+          }
+        }
+      );
+      resolve(auth);
+    }).catch(reject);
+  });
 }

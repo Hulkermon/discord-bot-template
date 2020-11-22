@@ -11,7 +11,8 @@
   },
   "nodemonConfig": {
     "ignore": [
-      "db.json"
+      "environments/",
+      "db/"
     ],
     "exec": "ts-node"
   },
