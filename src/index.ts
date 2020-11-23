@@ -1,13 +1,10 @@
 import { Bot } from "./bot";
 import Axios from "axios";
 import { environment } from "../environments/environment.dev";
-import { GuildSettings, SqliteService } from "./services/sqliteService";
 
-
-let db = new SqliteService();
 let bot = new Bot();
 
-// main();
+main();
 
 function main() {
   bot.start()

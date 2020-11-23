@@ -1,4 +1,4 @@
-import { environment } from './../../environments/environment.dev';
+import { environment } from '../../environments/environment.dev';
 import { RefreshableAuthProvider, RefreshConfig, StaticAuthProvider } from 'twitch/lib';
 import { ChatClient } from 'twitch-chat-client';
 import { promises as fs } from 'fs';
