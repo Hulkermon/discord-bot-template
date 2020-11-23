@@ -1,5 +1,9 @@
-import Discord from 'discord.js';
+import { DiscordCommandsService } from './discordCommandsService';
+import Discord, { Message } from 'discord.js';
 import { environment } from '../../environments/environment.dev';
+import { SqliteService } from './sqliteService';
+
+let db = new SqliteService();
 
 export class DiscordService {
   /**
@@ -13,6 +17,9 @@ export class DiscordService {
       this.setupEventHandlers(client);
   
       await client.login(environment.discord.botToken).catch(reject);
+
+      await db.connect().catch(reject);
+
       resolve();
     });
   }
@@ -37,23 +44,44 @@ export class DiscordService {
    * Handles the message.
    * @param msg The message to be handled.
    */
-  private handleMessage(msg: Discord.Message) {
-    if (msg.author.bot) {
+  private async handleMessage(msg: Discord.Message) {
+    if (msg.author.bot || msg.channel.type === 'dm') {
       // Ignore Messages by Bots
+      // Ignore DMs
       return;
     }
-    if (!environment.production && msg.guild?.id !== environment.discord.guildId) {
-      // Only listen to test server if in dev environment
-      return;
+    
+    let prefix = (await db.getSettingsByGuildId(msg.guild?.id)).discordPrefix;
+    if (msg.content.startsWith(prefix)) {
+      this.executeChatCommand(msg, prefix);
     }
-    this.executeChatCommand(msg);
   }
 
   /**
    * Executes a discord chat command.
    * @param msg discord message with the command to execute
    */
-  private executeChatCommand(msg: Discord.Message) {
-    msg.channel.send(`hello ${msg.guild?.members.resolve(msg.author)?.displayName}`);
+  private executeChatCommand(msg: Discord.Message, prefix: string) {
+    let commands = new DiscordCommandsService();
+
+    let [cmd, ...args]: [string, string] = this.getCommandAndArgs(prefix, msg);
+    // this.getCommandAndArgs(prefix, msg);
+
+    try {
+      (commands as any)[cmd](msg, args);
+    } catch (error) {
+      if (!error.message.endsWith(' is not a function')) {
+        console.error(error);
+      }
+    }
+    // msg.channel.send(`hello ${msg.guild?.members.resolve(msg.author)?.displayName}`);
+  }
+
+  private getCommandAndArgs(prefix: string, msg: Message): any {
+    let regex = "^" + prefix + "|\\s+";
+    return msg.content.split(new RegExp(regex)).splice(1);
+    // let [cmd, ...args] = msg.content.split(new RegExp(regex)).splice(1);
+    // console.log(`msg.content: ${msg.content.split('')}`);
+    // console.log(`cmd: ${cmd}`);
   }
 }
