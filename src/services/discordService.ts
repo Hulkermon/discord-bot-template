@@ -45,13 +45,13 @@ export class DiscordService {
    * @param msg The message to be handled.
    */
   private async handleMessage(msg: Discord.Message) {
-    if (msg.author.bot || msg.channel.type === 'dm') {
+    if (msg.author.bot || !msg.guild) {
       // Ignore Messages by Bots
-      // Ignore DMs
+      // Only listen to messages in guilds
       return;
     }
     
-    let prefix = (await db.getSettingsByGuildId(msg.guild?.id)).discordPrefix;
+    let prefix = (await db.getSettingsByGuildId(msg.guild.id)).discordPrefix;
     if (msg.content.startsWith(prefix)) {
       this.executeChatCommand(msg, prefix);
     }
@@ -68,13 +68,12 @@ export class DiscordService {
     // this.getCommandAndArgs(prefix, msg);
 
     try {
-      (commands as any)[cmd](msg, args);
+      (commands as any)[cmd](msg, args).catch(console.error);
     } catch (error) {
       if (!error.message.endsWith(' is not a function')) {
         console.error(error);
       }
     }
-    // msg.channel.send(`hello ${msg.guild?.members.resolve(msg.author)?.displayName}`);
   }
 
   /**
