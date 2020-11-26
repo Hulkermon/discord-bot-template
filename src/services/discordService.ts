@@ -64,7 +64,7 @@ export class DiscordService {
   private executeChatCommand(msg: Discord.Message, prefix: string) {
     let commands = new DiscordCommandsService();
 
-    let [cmd, ...args]: [string, string] = this.getCommandAndArgs(prefix, msg);
+    let [cmd, ...args]: [string, string] = this.getCommandAndArgs(prefix, msg.content);
     // this.getCommandAndArgs(prefix, msg);
 
     try {
@@ -77,11 +77,13 @@ export class DiscordService {
     // msg.channel.send(`hello ${msg.guild?.members.resolve(msg.author)?.displayName}`);
   }
 
-  private getCommandAndArgs(prefix: string, msg: Message): any {
+  /**
+   * getCommandAndArgs
+   * @param prefix The bots prefix
+   * @param msg The string containing the command
+   */
+  public getCommandAndArgs(prefix: string, msg: string): any {
     let regex = "^" + prefix + "|\\s+";
-    return msg.content.split(new RegExp(regex)).splice(1);
-    // let [cmd, ...args] = msg.content.split(new RegExp(regex)).splice(1);
-    // console.log(`msg.content: ${msg.content.split('')}`);
-    // console.log(`cmd: ${cmd}`);
+    return msg.split(new RegExp(regex)).splice(1);
   }
 }

@@ -7,6 +7,7 @@ export type GuildSettings = {
   discordPrefix: string,
   twitchPrefix: string,
   CmdChannel: string,
+  twitchChannels: string[],
 };
 
 export class SqliteService {
@@ -66,12 +67,44 @@ export class SqliteService {
   }
 
   /**
+   * getSettingsByTwitchChannel
+   * Retuns a twitch channels settings
+   * @param guildId The snowflake of the guild
+   */
+  public getSettingsByTwitchChannel(channelName: string): Promise<GuildSettings> {
+    return new Promise(async (resolve, reject) => {
+      let db = await this.getSettingsDb();
+      db.all('SELECT settings FROM settings', (err: any | null, rows: any[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          if (rows[0]) {
+            let settings = null;
+            rows.forEach(row => {
+              let rowSettings = JSON.parse(row.settings);
+              let channelNames: string[] = rowSettings.twitchChannels;
+              if (channelNames.includes(channelName)) {
+                settings = rowSettings;
+              }
+            });
+            if (settings) {
+              resolve(settings);
+            } else {
+              reject(`No settings found for twitch channel "${channelName}"`);
+            }
+          }
+        }
+      });
+    });
+  }
+
+  /**
    * setSettingsByGuildId
    * Sets the new Guild Specific settings
    * @param guildId The snowflake of the guild
    * @param settings The new settings
    */
-  public setSettingsByGuildId(guildId: string, settings: GuildSettings): Promise<any> {
+  public setSettingsByGuildId(guildId: string | undefined, settings: GuildSettings): Promise<any> {
     return new Promise((resolve, reject) => {
       this.getSettingsDb().then(db => {
         let settingsString = JSON.stringify(settings);
@@ -79,7 +112,7 @@ export class SqliteService {
           if (err) {
             reject(err);
           } else {
-            resolve();
+            resolve(`settings for ${guildId} have been updated`);
           }
         });
       }).catch(reject);
@@ -99,7 +132,8 @@ export class SqliteService {
         CmdChannel: '',
         discordPrefix: 'temp!',
         twitchPrefix: '!',
-      }
+        twitchChannels: [],
+      };
       db.run('INSERT INTO settings(guildId, settings) VALUES(?, ?)', [guildId, JSON.stringify(defaultSettings)], (err: Error | null) => {
         if (err) {
           reject(err);
@@ -134,6 +168,23 @@ export class SqliteService {
   private createSettingsTable(db: sqlite3.Database): Promise<any> {
     return new Promise((resolve, reject) => {
       db.run('CREATE TABLE IF NOT EXISTS settings (guildId TEXT PRIMARY KEY, settings TEXT)', [], (err: Error) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * createDataTable
+   * Creates a table for all sorts of data
+   * @param db database on which to create the table
+   */
+  private createDataTable(db: sqlite3.Database): Promise<any> {
+    return new Promise((resolve, reject) => {
+      db.run('CREATE TABLE IF NOT EXISTS data (id TEXT PRIMARY KEY, data TEXT)', [], (err: Error) => {
         if (err) {
           reject(err);
         } else {

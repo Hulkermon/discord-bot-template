@@ -1,10 +1,13 @@
+import { TwitchCommandsService } from './twitchCommandsService';
+import { DiscordService } from './discordService';
+import { SqliteService, GuildSettings } from './sqliteService';
 import { environment } from '../../environments/environment.dev';
 import { RefreshableAuthProvider, RefreshConfig, StaticAuthProvider } from 'twitch/lib';
 import { ChatClient } from 'twitch-chat-client';
 import { promises as fs } from 'fs';
 
-
 let chatClient: ChatClient;
+let db = new SqliteService();
 
 export class TwitchService {
 
@@ -20,10 +23,10 @@ export class TwitchService {
   public setup() {
     return new Promise(async (resolve, reject) => {
       await chatClient.connect().catch(reject);
-      console.log(`Logged into Twitch as ${environment.twitch.username}`);
 
       this.setupEventHandlers(chatClient);
 
+      console.log(`Logged into Twitch as ${environment.twitch.username}`);
       resolve();
     })
   }
@@ -34,11 +37,49 @@ export class TwitchService {
    * @param client The chat client for which to setup the event handlers.
    */
   public setupEventHandlers(client: ChatClient) {
-    chatClient.onMessage((channel, user, message) => {
-      if (message === 'hi') {
-        chatClient.say(channel, `hello ${user}`);
-      }
+    client.onMessage((channel, user, message) => {
+      this.handleMessage(channel, user, message);
     });
+  }
+
+  /**
+   * handleMessage
+   * Handles the message.
+   * @param msg The message to be handled.
+   */
+  private async handleMessage(channel: string, user: string, message: string) {
+    let channelName = channel[0] === '#' ? channel.slice(1) : channel;
+
+    try {
+      let prefix = (await db.getSettingsByTwitchChannel(channelName)).twitchPrefix;
+      if (message.startsWith(prefix)) {
+        this.executeChatCommand(channel, user, message, prefix);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  /**
+   * executeChatCommand
+   * @param channel The twitch channel where the message was sent
+   * @param user The twitch uesr who sent the message
+   * @param message The message that was sent
+   * @param prefix The bots prefix
+   */
+  private executeChatCommand(channel: string, user: string, message: string, prefix: string) {
+    let tempDiscordService = new DiscordService()
+    let commands = new TwitchCommandsService();
+
+    let [cmd, ...args]: [string, string] = tempDiscordService.getCommandAndArgs(prefix, message);
+
+    try {
+      (commands as any)[cmd](chatClient, channel, user, args);
+    } catch (error) {
+      if (!error.message.endsWith(' is not a function')) {
+        console.error(error);
+      }
+    }
   }
 }
 
