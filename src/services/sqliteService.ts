@@ -1,10 +1,10 @@
 import sqlite3 from "sqlite3";
 
 export type GuildSettings = {
-  discordPrefix: string,
-  twitchPrefix: string,
-  CmdChannel: string,
-  twitchChannels: string[],
+  discordPrefix?: string,
+  twitchPrefix?: string,
+  CmdChannelId?: string,
+  twitchChannels?: string[],
 };
 
 export class SqliteService {
@@ -38,6 +38,7 @@ export class SqliteService {
    * getSettingsByGuildId
    * Retuns a guilds settings
    * @param guildId The snowflake of the guild
+   * @returns Current guild settings
    */
   public getSettingsByGuildId(guildId: string | undefined): Promise<GuildSettings> {
     return new Promise((resolve, reject) => {
@@ -65,6 +66,7 @@ export class SqliteService {
    * getSettingsByTwitchChannel
    * Retuns a twitch channels settings
    * @param guildId The snowflake of the guild
+   * @returns Current guild settings
    */
   public getSettingsByTwitchChannel(channelName: string): Promise<GuildSettings> {
     return new Promise((resolve, reject) => {
@@ -97,14 +99,16 @@ export class SqliteService {
   /**
    * setSettingsByGuildId
    * Sets the new Guild Specific settings
-   * @param guildId The snowflake of the guild
-   * @param settings The new settings
+   * @param guildId snowflake of the guild
+   * @param settings new settings
    */
   public setSettingsByGuildId(guildId: string | undefined, settings: GuildSettings): Promise<any> {
     return new Promise((resolve, reject) => {
-      this.getGuildsDb().then(db => {
-        let settingsString = JSON.stringify(settings);
-        db.run('UPDATE settings SET settings = ? WHERE guildId = ?', [settingsString, guildId], (err: any | null) => {
+      this.getGuildsDb().then(async db => {
+        let oldSettings = await this.getSettingsByGuildId(guildId);
+        let newSettings = Object.assign(oldSettings, settings);
+        let newSettingsString = JSON.stringify(newSettings);
+        db.run('UPDATE settings SET settings = ? WHERE guildId = ?', [newSettingsString, guildId], (err: any | null) => {
           if (err) {
             reject(err);
           } else {
@@ -125,7 +129,7 @@ export class SqliteService {
   private createGuildSettingsById(guildId: string, db: sqlite3.Database): Promise<GuildSettings> {
     return new Promise((resolve, reject) => {
       let defaultSettings: GuildSettings = {
-        CmdChannel: '',
+        CmdChannelId: '',
         discordPrefix: 'temp!',
         twitchPrefix: '!',
         twitchChannels: [],
@@ -191,20 +195,25 @@ export class SqliteService {
   }
 
   /**
-   * getData
-   * Gets Data from the Database
+   * getValue
+   * Gets a value from the Database
    * @param guildId ID of the Discord Guild the value should be stored for
    * @param key name of the value
-   * @returns data as json object
+   * @returns value as json object
    */
-  public getData(guildId: string | undefined, key: string): Promise<any> {
+  public getValue(guildId: string | undefined, key: string): Promise<any> {
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
         db.all('SELECT value FROM data WHERE guildId = ? AND key = ?', [guildId, key], (err: Error, rows: any[]) => {
           if (err) {
             reject(err);
           } else if (rows[0]) {
-            resolve(rows[0].data);
+            try {
+              let value = JSON.parse(rows[0].value);
+              resolve(value);
+            } catch (error) {
+              reject('Could not parse value');
+            }
           } else {
             reject(`No key "${key}" was found`);
           }
@@ -214,15 +223,15 @@ export class SqliteService {
   }
 
   /**
-   * setData
+   * setValue
    * Saves _value_ as stringified json object.    
    * _value_ needs to be json stringifiable.
    * @param guildId ID of the Discord Guild the value should be stored for
    * @param key name of the value
-   * @param value json stringifiable to be stored
+   * @param value json value to be stored
    * @returns status string
    */
-  public setData(guildId: string | undefined, key: string, value: any): Promise<string> {
+  public setValue(guildId: string | undefined, key: string, value: any): Promise<string> {
     if (!guildId) {
       return Promise.reject('No Guild ID specified');
     } else if (!key) {
@@ -232,18 +241,18 @@ export class SqliteService {
     }
 
     try {
-      value = JSON.stringify(value)
+      value = JSON.stringify(value);
     } catch (error) {
       return Promise.reject('Could not stringify value');
     }
     
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
-        this.getData(guildId, key).then(() => {
-          this.updateData(db, guildId, key, value).then(resolve).catch(reject);
+        this.getValue(guildId, key).then(() => {
+          this.updateValue(db, guildId, key, value).then(resolve).catch(reject);
         }).catch(e => {
-          if (typeof e === 'string') {
-            this.insertData(db, guildId, key, value).then(resolve).catch(reject);
+          if (typeof e === 'string' && e.startsWith('No key')) {
+            this.insertValue(db, guildId, key, value).then(resolve).catch(reject);
           } else {
             reject(e);
           }
@@ -252,7 +261,7 @@ export class SqliteService {
     })
   }
 
-  private updateData(db: sqlite3.Database, guildId: string, key: string, value: any): Promise<string> {
+  private updateValue(db: sqlite3.Database, guildId: string, key: string, value: any): Promise<string> {
     return new Promise((resolve, reject) => {
       db.run('UPDATE data SET value = ? WHERE guildId = ? AND key = ?', [value, guildId, key], (err: Error) => {
         if (err) {
@@ -264,7 +273,7 @@ export class SqliteService {
     })
   }
 
-  private insertData(db: sqlite3.Database, guildId: string, key: string, value: any): Promise<string> {
+  private insertValue(db: sqlite3.Database, guildId: string, key: string, value: any): Promise<string> {
     return new Promise((resolve, reject) => {
       db.run('INSERT INTO data(guildId, key, value) VALUES(?, ?, ?)', [guildId, key, value], (err: Error) => {
         if (err) {

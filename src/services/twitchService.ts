@@ -2,7 +2,7 @@ import { TwitchCommandsService } from './twitchCommandsService';
 import { DiscordService } from './discordService';
 import { SqliteService, GuildSettings } from './sqliteService';
 import { environment } from '../../environments/environment.dev';
-import { RefreshableAuthProvider, RefreshConfig, StaticAuthProvider } from 'twitch/lib';
+import { RefreshableAuthProvider, StaticAuthProvider } from 'twitch-auth';
 import { ChatClient } from 'twitch-chat-client';
 import { promises as fs } from 'fs';
 
@@ -52,7 +52,7 @@ export class TwitchService {
 
     try {
       let prefix = (await db.getSettingsByTwitchChannel(channelName)).twitchPrefix;
-      if (message.startsWith(prefix)) {
+      if (prefix && message.startsWith(prefix)) {
         this.executeChatCommand(channel, user, message, prefix);
       }
     } catch (error) {

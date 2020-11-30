@@ -51,8 +51,10 @@ export class DiscordService {
       return;
     }
     
-    let prefix = (await db.getSettingsByGuildId(msg.guild.id)).discordPrefix;
-    if (msg.content.startsWith(prefix)) {
+    let settings = (await db.getSettingsByGuildId(msg.guild.id));
+    let prefix = settings.discordPrefix;
+    let cmdChannelId = settings.CmdChannelId;
+    if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
       this.executeChatCommand(msg, prefix);
     }
   }
@@ -65,7 +67,7 @@ export class DiscordService {
     let commands = new DiscordCommandsService();
 
     let [cmd, ...args]: [string, string] = this.getCommandAndArgs(prefix, msg.content);
-    // this.getCommandAndArgs(prefix, msg);
+    cmd = cmd.toLowerCase();
 
     try {
       (commands as any)[cmd](msg, args).catch(console.error);
