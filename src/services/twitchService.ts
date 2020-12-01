@@ -1,4 +1,4 @@
-import { TwitchCommandsService } from './twitchCommandsService';
+import { TwitchCommands } from './../commands/twitchCommands';
 import { DiscordService } from './discordService';
 import { SqliteService, GuildSettings } from './sqliteService';
 import { environment } from '../../environments/environment.dev';
@@ -69,7 +69,7 @@ export class TwitchService {
    */
   private executeChatCommand(channel: string, user: string, message: string, prefix: string) {
     let tempDiscordService = new DiscordService()
-    let commands = new TwitchCommandsService();
+    let commands = new TwitchCommands();
 
     let [cmd, ...args]: [string, string] = tempDiscordService.getCommandAndArgs(prefix, message);
 

@@ -1,4 +1,4 @@
-import { DiscordCommandsService } from './discordCommandsService';
+import { CommandsList, DiscordCommands } from '../commands/discordCommands';
 import Discord, { Message } from 'discord.js';
 import { environment } from '../../environments/environment.dev';
 import { SqliteService } from './sqliteService';
@@ -64,18 +64,11 @@ export class DiscordService {
    * @param msg discord message with the command to execute
    */
   private executeChatCommand(msg: Discord.Message, prefix: string) {
-    let commands = new DiscordCommandsService();
+    let commands = new DiscordCommands();
 
-    let [cmd, ...args]: [string, string] = this.getCommandAndArgs(prefix, msg.content);
-    cmd = cmd.toLowerCase();
+    let [cmd, ...args]: [CommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
 
-    try {
-      (commands as any)[cmd](msg, args).catch(console.error);
-    } catch (error) {
-      if (!error.message.endsWith(' is not a function')) {
-        console.error(error);
-      }
-    }
+    commands.execute(cmd, msg, args).catch(console.error);
   }
 
   /**
@@ -84,7 +77,18 @@ export class DiscordService {
    * @param msg The string containing the command
    */
   public getCommandAndArgs(prefix: string, msg: string): any {
-    let regex = "^" + prefix + "|\\s+";
-    return msg.split(new RegExp(regex)).splice(1);
+    let safePrefix = '';
+    for (let i = 0; i < prefix.length; i++) {
+      let char = prefix[i];
+      if (char === '\\') {
+        char = '\\\\';
+      }
+      safePrefix += char;
+    }
+
+    let regex = "^" + safePrefix + "|\\s+";
+    let commandAndArgs = msg.split(new RegExp(regex)).splice(1);
+    commandAndArgs[0] = commandAndArgs[0].toLowerCase();
+    return commandAndArgs;
   }
 }
