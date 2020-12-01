@@ -1,10 +1,12 @@
 import { GuildSettings, SqliteService } from '../services/sqliteService';
 import { GuildMember, Message, MessageEmbed } from "discord.js";
 
-export const enum CommandsList {
+export const enum DiscordCommandsList {
   help = 'help',
   ping = 'ping',
   prefix = 'prefix',
+  twitchprefix = 'twitchprefix',
+  settwitch = 'settwitch',
   info = 'info',
   cmdchannel = 'cmdchannel',
   get = 'get',
@@ -32,6 +34,8 @@ const commandPermissions: CommandInfo[] = [
   { name: 'help', cooldownSeconds: 5, permissionLevel: PermissionLevel.member },
   { name: 'ping', cooldownSeconds: 5, permissionLevel: PermissionLevel.member },
   { name: 'prefix', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin },
+  { name: 'twitchprefix', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin },
+  { name: 'settwitch', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin },
   { name: 'info', cooldownSeconds: 5, permissionLevel: PermissionLevel.member },
   { name: 'commandschannel', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin },
   { name: 'cmdchannel', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin },
@@ -47,7 +51,7 @@ export class DiscordCommands {
    * @param command
    * @returns Promise that resolves once the command has been executed
    */
-  public execute(command: CommandsList, msg: Message, args: string[]): Promise<any> {
+  public execute(command: DiscordCommandsList, msg: Message, args: string[]): Promise<any> {
     return new Promise(async (resolve, reject) => {
       try {
         if (msg.member && this.checkPermission(msg.member, command)) {
@@ -67,7 +71,7 @@ export class DiscordCommands {
    * @param command
    * @returns true if the user has permission to use the command, false if not
    */
-  private checkPermission(member: GuildMember, command: CommandsList): boolean {
+  private checkPermission(member: GuildMember, command: DiscordCommandsList): boolean {
     let authorAccessLevel: PermissionLevel;
     let commandInfo = commandPermissions.find(c => c.name === command);
 
@@ -110,8 +114,10 @@ export class DiscordCommands {
         helpEmbed.addFields(
           { name: '\u200B', value: '\u200B' },
           { name: '**Admin Commands**', value: '\u200B' },
-          { name: '*prefix [newPrefix]*', value: 'Changes the bots prefix' },
           { name: '*cmdChannel [#text-channel]*', value: `Sets where the bot listens for commands.\n\`${settings.discordPrefix}cmdChannel off\` to disable` },
+          { name: '*prefix [newPrefix]*', value: 'Changes the bots prefix' },
+          { name: '*twitchPrefix [newPrefix]*', value: 'Changes the bots prefix on Twitch' },
+          { name: '*setTwitch [twitchChannel]*', value: 'Sets where the bot will listen on Twitch' },
         );
       }
       msg.channel.send(helpEmbed).then(resolve).catch(reject);
@@ -154,6 +160,45 @@ export class DiscordCommands {
     });
   }
 
+  /**
+   * prefix
+   * Sets the bots prefix on twitch
+   */
+  private twitchprefix(msg: Message, args: string[]): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!args[0]) {
+        msg.channel.send('Please provide a prefix')
+          .then(() => { resolve('no prefix defined') })
+          .catch(reject);
+      } else {
+        let db = new SqliteService();
+        let newSettings: GuildSettings = { twitchPrefix: args[0] };
+        db.setSettingsByGuildId(msg.guild?.id, newSettings).then(res => {
+          msg.channel.send(`prefix changed to \`${args[0]}\``).then(() => resolve(res)).catch(reject);
+        }).catch(reject);
+      }
+    });
+  }
+
+  /**
+   * prefix
+   * Sets the twitch channel the bot listens to
+   */
+  private settwitch(msg: Message, args: string[]): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!args[0]) {
+        msg.channel.send('Please provide a Twitch channel')
+          .then(() => { resolve('no Twitch channel defined') })
+          .catch(reject);
+      } else {
+        let db = new SqliteService();
+        let newSettings: GuildSettings = { twitchChannels: [ args[0] ] };
+        db.setSettingsByGuildId(msg.guild?.id, newSettings).then(res => {
+          msg.channel.send(`Twitch channel set to \`${args[0]}\``).then(() => resolve(res)).catch(reject);
+        }).catch(reject);
+      }
+    });
+  }
 
   /**
    * info

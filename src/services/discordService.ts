@@ -1,4 +1,4 @@
-import { CommandsList, DiscordCommands } from '../commands/discordCommands';
+import { DiscordCommandsList, DiscordCommands } from '../commands/discordCommands';
 import Discord, { Message } from 'discord.js';
 import { environment } from '../../environments/environment.dev';
 import { SqliteService } from './sqliteService';
@@ -66,7 +66,7 @@ export class DiscordService {
   private executeChatCommand(msg: Discord.Message, prefix: string) {
     let commands = new DiscordCommands();
 
-    let [cmd, ...args]: [CommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
+    let [cmd, ...args]: [DiscordCommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
 
     commands.execute(cmd, msg, args).catch(console.error);
   }
@@ -74,20 +74,20 @@ export class DiscordService {
   /**
    * getCommandAndArgs
    * @param prefix The bots prefix
-   * @param msg The string containing the command
+   * @param message The string containing the command
    */
-  public getCommandAndArgs(prefix: string, msg: string): any {
+  public getCommandAndArgs(prefix: string, message: string): any {
     let safePrefix = '';
     for (let i = 0; i < prefix.length; i++) {
       let char = prefix[i];
-      if (char === '\\') {
-        char = '\\\\';
+      if (char === '\\' || char === '$') {
+        char = '\\' + char;
       }
       safePrefix += char;
     }
 
     let regex = "^" + safePrefix + "|\\s+";
-    let commandAndArgs = msg.split(new RegExp(regex)).splice(1);
+    let commandAndArgs = message.split(new RegExp(regex)).splice(1);
     commandAndArgs[0] = commandAndArgs[0].toLowerCase();
     return commandAndArgs;
   }

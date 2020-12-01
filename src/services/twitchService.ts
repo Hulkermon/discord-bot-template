@@ -1,4 +1,4 @@
-import { TwitchCommands } from './../commands/twitchCommands';
+import { TwitchCommands, TwitchCommandsList } from './../commands/twitchCommands';
 import { DiscordService } from './discordService';
 import { SqliteService, GuildSettings } from './sqliteService';
 import { environment } from '../../environments/environment.dev';
@@ -13,7 +13,8 @@ export class TwitchService {
 
   constructor() {
     refreshAuth().then(auth => {
-      chatClient = new ChatClient(auth, { channels: ['hulkermon'], requestMembershipEvents: true });
+      // TODO: Dynamic Twitch channels and such. Not really a priority I guess...
+      chatClient = new ChatClient(auth, { channels: ['hulkerbot'], requestMembershipEvents: true });
     });
   }
   /**
@@ -68,18 +69,44 @@ export class TwitchService {
    * @param prefix The bots prefix
    */
   private executeChatCommand(channel: string, user: string, message: string, prefix: string) {
-    let tempDiscordService = new DiscordService()
     let commands = new TwitchCommands();
 
-    let [cmd, ...args]: [string, string] = tempDiscordService.getCommandAndArgs(prefix, message);
+    let [cmd, ...args]: [TwitchCommandsList, string] = this.getCommandAndArgs(prefix, message);
 
-    try {
-      (commands as any)[cmd](chatClient, channel, user, args);
-    } catch (error) {
-      if (!error.message.endsWith(' is not a function')) {
-        console.error(error);
+    commands.execute(cmd, chatClient, channel, user, args).catch(console.error);
+  }
+
+  /**
+   * Executes a discord chat command.
+   * @param msg discord message with the command to execute
+   */
+  // private executeChatCommand(msg: Discord.Message, prefix: string) {
+  //   let commands = new DiscordCommands();
+
+  //   let [cmd, ...args]: [CommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
+
+  //   commands.execute(cmd, msg, args).catch(console.error);
+  // }
+
+  /**
+   * getCommandAndArgs
+   * @param prefix The bots prefix
+   * @param message The string containing the command
+   */
+  public getCommandAndArgs(prefix: string, message: string): any {
+    let safePrefix = '';
+    for (let i = 0; i < prefix.length; i++) {
+      let char = prefix[i];
+      if (char === '\\' || char === '$') {
+        char = '\\' + char;
       }
+      safePrefix += char;
     }
+
+    let regex = "^" + safePrefix + "|\\s+";
+    let commandAndArgs = message.split(new RegExp(regex)).splice(1);
+    commandAndArgs[0] = commandAndArgs[0].toLowerCase();
+    return commandAndArgs;
   }
 }
 
