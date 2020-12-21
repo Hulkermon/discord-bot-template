@@ -1,6 +1,8 @@
+import { SqliteService } from './services/sqliteService';
 import { TwitchService } from './services/twitchService';
 import { DiscordService } from './services/discordService';
 
+const sqliteService = new SqliteService();
 const twitchService = new TwitchService();
 const discordService = new DiscordService();
 
@@ -11,9 +13,12 @@ export class Bot {
    */
   public start() {
     return new Promise(async (resolve, reject) => {
-      await discordService.setup().catch(reject);
-      await twitchService.setup().catch(reject);
-      resolve();
-    })
+      await sqliteService.setup();
+      Promise.all([
+        discordService.setup(),
+        console.log('Twitch side requires some more setup'),
+        // twitchService.setup(),
+      ]).then(resolve).catch(reject);
+    });
   }
 }

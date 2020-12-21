@@ -1,10 +1,11 @@
 import sqlite3 from "sqlite3";
 
 export type GuildSettings = {
+  guildId?: string
   discordPrefix?: string,
   twitchPrefix?: string,
-  CmdChannelId?: string,
-  twitchChannels?: string[],
+  cmdChannelId?: string,
+  twitchChannel?: string | null,
 };
 
 export class SqliteService {
@@ -12,11 +13,11 @@ export class SqliteService {
   }
 
   /**
-   * connect
+   * setup
    * establishes a connection to the Database and sets them up if needed
    * @returns a promise that resolves once the DB is ready to use
    */
-  public connect(): Promise<any> {
+  public setup(): Promise<any> {
     return new Promise((resolve, reject) => {
       let db = new sqlite3.Database('./db/guilds.sqlite3', async (err: Error | null) => {
         if (err) {
@@ -24,8 +25,8 @@ export class SqliteService {
         }
 
         try {
-          await this.createSettingsTable(db);
-          await this.createDataTable(db)
+          await this.createSettingsTable();
+          await this.createUsersTable();
           resolve();
         } catch (error) {
           reject(error)
@@ -129,10 +130,11 @@ export class SqliteService {
   private createGuildSettingsById(guildId: string, db: sqlite3.Database): Promise<GuildSettings> {
     return new Promise((resolve, reject) => {
       let defaultSettings: GuildSettings = {
-        CmdChannelId: '',
+        guildId: guildId,
+        cmdChannelId: '',
         discordPrefix: 'temp!',
         twitchPrefix: '!',
-        twitchChannels: [],
+        twitchChannel: null,
       };
       db.run('INSERT INTO settings(guildId, settings) VALUES(?, ?)', [guildId, JSON.stringify(defaultSettings)], (err: Error | null) => {
         if (err) {
@@ -148,7 +150,7 @@ export class SqliteService {
    * getGuildsDb
    * Returns the guilds SQlite Database
    */
-  private getGuildsDb(): Promise<sqlite3.Database> {
+  public getGuildsDb(): Promise<sqlite3.Database> {
     return new Promise((resolve, reject) => {
       let settingsDb: sqlite3.Database = new sqlite3.Database('./db/guilds.sqlite3', sqlite3.OPEN_READWRITE, (err: Error | null) => {
         if (err) {
@@ -163,34 +165,39 @@ export class SqliteService {
   /**
    * createSettingsTable
    * Creates a table for guild specific settings
-   * @param db database on which to create the table
    */
-  private createSettingsTable(db: sqlite3.Database): Promise<any> {
+  private createSettingsTable(): Promise<any> {
     return new Promise((resolve, reject) => {
-      db.run('CREATE TABLE IF NOT EXISTS settings (guildId TEXT PRIMARY KEY, settings TEXT)', [], (err: Error) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
+      this.getGuildsDb().then(db => {
+        db.run('CREATE TABLE IF NOT EXISTS settings (guildId TEXT PRIMARY KEY, settings TEXT)', [], (err: Error | null) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+          db.close();
+        });
+      }).catch(reject);
     });
   }
 
+
   /**
-   * createDataTable
-   * Creates a table for all sorts of data
-   * @param db database on which to create the table
+   * createUsersTable
+   * Creates a table for users
    */
-  private createDataTable(db: sqlite3.Database): Promise<any> {
+  private createUsersTable(): Promise<any> {
     return new Promise((resolve, reject) => {
-      db.run('CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY AUTOINCREMENT, guildId TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL)', [], (err: Error) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
+      this.getGuildsDb().then(db => {
+        db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, guildId TEXT NOT NULL, discordId TEXT, twitchName TEXT, points INTEGER NOT NULL)', [], (err: Error) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+          db.close();
+        });
+      }).catch(reject);
     });
   }
 

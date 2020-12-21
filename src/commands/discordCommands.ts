@@ -1,3 +1,4 @@
+import { TwitchService } from './../services/twitchService';
 import { GuildSettings, SqliteService } from '../services/sqliteService';
 import { GuildMember, Message, MessageEmbed } from "discord.js";
 
@@ -181,7 +182,7 @@ export class DiscordCommands {
   }
 
   /**
-   * prefix
+   * settwitch
    * Sets the twitch channel the bot listens to
    */
   private settwitch(msg: Message, args: string[]): Promise<any> {
@@ -191,10 +192,21 @@ export class DiscordCommands {
           .then(() => { resolve('no Twitch channel defined') })
           .catch(reject);
       } else {
+        let newSettings: GuildSettings;
+        let confirmationString = '';
+        if (args[0].toLowerCase() === 'off') {
+          newSettings = { twitchChannel: null }
+          confirmationString = `Twitch channel disabled`;
+        } else {
+          newSettings = { twitchChannel: args[0] }
+          confirmationString = `Twitch channel set to \`${args[0]}\``;
+        }
         let db = new SqliteService();
-        let newSettings: GuildSettings = { twitchChannels: [ args[0] ] };
-        db.setSettingsByGuildId(msg.guild?.id, newSettings).then(res => {
-          msg.channel.send(`Twitch channel set to \`${args[0]}\``).then(() => resolve(res)).catch(reject);
+        db.setSettingsByGuildId(msg.guild?.id, newSettings).then(async res => {
+          let twitchService = new TwitchService();
+          await twitchService.setup().catch(reject);
+          await msg.channel.send(confirmationString).catch(reject);
+          resolve();
         }).catch(reject);
       }
     });
@@ -216,11 +228,11 @@ export class DiscordCommands {
           { name: '***Twitch prefix***', value: `\`${settings.twitchPrefix}\``, inline: true },
         )
         .setFooter('Coded with <3 by Hulkermon#1337', botDevDiscordIconUrl);
-      if (settings.CmdChannelId) {
-        infoEmbed.addField('***Commands Channel***', `<#${settings.CmdChannelId}>`);
+      if (settings.cmdChannelId) {
+        infoEmbed.addField('***Commands Channel***', `<#${settings.cmdChannelId}>`);
       }
-      if (settings.twitchChannels && settings.twitchChannels.length > 0) {
-        infoEmbed.addField('***Connected Twitch channels***', `${settings.twitchChannels?.join(', ')}`);
+      if (settings.twitchChannel) {
+        infoEmbed.addField('***Connected Twitch channels***', `${settings.twitchChannel}`);
       }
       msg.channel.send(infoEmbed).then(resolve).catch(reject);
     });
@@ -252,7 +264,7 @@ export class DiscordCommands {
     return new Promise((resolve, reject) => {
       let newCmdChannel = msg.guild?.channels.resolve(newCmdChannelId);
       let db = new SqliteService();
-      let newSettings: GuildSettings = { CmdChannelId: newCmdChannel?.id };
+      let newSettings: GuildSettings = { cmdChannelId: newCmdChannel?.id };
       db.setSettingsByGuildId(msg.guild?.id, newSettings).then(async res => {
         if (newCmdChannel) {
           await msg.channel.send(`cmdChannel changed to ${newCmdChannel?.toString()}`).catch(reject);

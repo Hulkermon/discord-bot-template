@@ -1,35 +1,139 @@
 import { TwitchCommands, TwitchCommandsList } from './../commands/twitchCommands';
-import { DiscordService } from './discordService';
-import { SqliteService, GuildSettings } from './sqliteService';
-import { environment } from '../../environments/environment.dev';
-import { RefreshableAuthProvider, StaticAuthProvider } from 'twitch-auth';
+import { SqliteService } from './sqliteService';
+import { environment } from '../../environments/environment';
+import { RefreshableAuthProvider, RefreshConfig, StaticAuthProvider } from 'twitch-auth';
 import { ChatClient } from 'twitch-chat-client';
 import { promises as fs } from 'fs';
+import { ApiClient } from 'twitch';
 
+let apiClient: ApiClient;
 let chatClient: ChatClient;
-let db = new SqliteService();
 
 export class TwitchService {
 
   constructor() {
-    refreshAuth().then(auth => {
-      // TODO: Dynamic Twitch channels and such. Not really a priority I guess...
-      chatClient = new ChatClient(auth, { channels: ['hulkerbot'], requestMembershipEvents: true });
-    });
   }
   /**
    * setup
    * Connect the bot to the Twitch API and listen for events.
    */
-  public setup() {
+  public setup(): Promise<any> {
     return new Promise(async (resolve, reject) => {
-      await chatClient.connect().catch(reject);
-
+      await this.startApiClient().catch(reject);
+      await this.startChatClient().catch(reject);
       this.setupEventHandlers(chatClient);
-
       console.log(`Logged into Twitch as ${environment.twitch.username}`);
       resolve();
+    });
+  }
+
+  /**
+   * startApiClient
+   * Starts the Twitch API client
+   */
+  private startApiClient(): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.refreshApiAuth().then(authProvider => {
+        apiClient = new ApiClient({ authProvider, preAuth: true });
+      }).catch(reject);
+      resolve();
+    });
+  }
+
+  /**
+   * startChatClient
+   * Start the Twitch Chat client
+   */
+  public startChatClient(): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let sqliteService = new SqliteService();
+      sqliteService.getGuildsDb().then(db => {
+        let allChannels: string[] = [];
+        db.all('SELECT settings FROM settings', (err: Error | null, rows: any[]) => {
+          if (err) {
+            reject(err);
+          } else {
+            rows.forEach(row => {
+              let settings = JSON.parse(row.settings);
+              if (settings.twitchChannel) {
+                allChannels.push(settings.twitchChannel);
+              }
+            });
+            this.refreshChatAuth().then(async auth => {
+              chatClient = new ChatClient(auth, { channels: allChannels, requestMembershipEvents: true });
+              await chatClient.connect().catch(reject);
+              resolve();
+            }).catch(reject);
+          }
+        });
+      }).catch(reject);
     })
+  }
+
+  private refreshChatAuth(): Promise<RefreshableAuthProvider> {
+    return new Promise(async (resolve, reject) => {
+      fs.readFile('./environments/botToken.json').then(rawTokenData => {
+        let twitchEnv = environment.twitch;
+        let clientId = twitchEnv.clientId;
+        let clientSecret = twitchEnv.clientSecret;
+
+        let tokenData = JSON.parse(rawTokenData.toString());
+        let accessToken = tokenData.accessToken;
+        let refreshToken = tokenData.refreshToken;
+        let expiryTimestamp = tokenData.expiryTimestamp;
+
+        let childProvider = new StaticAuthProvider(clientId, accessToken);
+        let refreshConfig: RefreshConfig = {
+          clientSecret,
+          refreshToken,
+          expiry: expiryTimestamp === null ? null : new Date(expiryTimestamp),
+          onRefresh: async ({ accessToken, refreshToken, expiryDate }) => {
+            let newTokenData = {
+              accessToken,
+              refreshToken,
+              tokenExpiryTimestamp: expiryDate === null ? 0 : expiryDate.getTime()
+            };
+            await fs.writeFile('./environments/botToken.json', JSON.stringify(newTokenData, null, 4), 'utf-8');
+            console.log('refreshed bot token');
+          }
+        }
+        let auth = new RefreshableAuthProvider(childProvider, refreshConfig);
+        resolve(auth);
+      }).catch(reject);
+    });
+  }
+
+  private refreshApiAuth(): Promise<RefreshableAuthProvider> {
+    return new Promise(async (resolve, reject) => {
+      fs.readFile('./environments/broadcasterToken.json').then(rawTokenData => {
+        let twitchEnv = environment.twitch;
+        let clientId = twitchEnv.clientId;
+        let clientSecret = twitchEnv.clientSecret;
+
+        let tokenData = JSON.parse(rawTokenData.toString());
+        let accessToken = tokenData.accessToken;
+        let refreshToken = tokenData.refreshToken;
+        let expiryTimestamp = tokenData.expiryTimestamp;
+
+        let childProvider = new StaticAuthProvider(clientId, accessToken);
+        let refreshConfig: RefreshConfig = {
+          clientSecret,
+          refreshToken,
+          expiry: expiryTimestamp === null ? null : new Date(expiryTimestamp),
+          onRefresh: async ({ accessToken, refreshToken, expiryDate }) => {
+            let newTokenData = {
+              accessToken,
+              refreshToken,
+              tokenExpiryTimestamp: expiryDate === null ? 0 : expiryDate.getTime()
+            };
+            await fs.writeFile('./environments/broadcasterToken.json', JSON.stringify(newTokenData, null, 4), 'utf-8');
+            console.log('refreshed API token');
+          }
+        }
+        let auth = new RefreshableAuthProvider(childProvider, refreshConfig);
+        resolve(auth);
+      }).catch(reject);
+    });
   }
 
   /**
@@ -37,7 +141,7 @@ export class TwitchService {
    * sets up all the event handlers for a Twitch Chat Client.
    * @param client The chat client for which to setup the event handlers.
    */
-  public setupEventHandlers(client: ChatClient) {
+  private setupEventHandlers(client: ChatClient) {
     client.onMessage((channel, user, message) => {
       this.handleMessage(channel, user, message);
     });
@@ -52,9 +156,13 @@ export class TwitchService {
     let channelName = channel[0] === '#' ? channel.slice(1) : channel;
 
     try {
-      let prefix = (await db.getSettingsByTwitchChannel(channelName)).twitchPrefix;
-      if (prefix && message.startsWith(prefix)) {
-        this.executeChatCommand(channel, user, message, prefix);
+      let sqliteService = new SqliteService();
+      let settings = await sqliteService.getSettingsByTwitchChannel(channelName);
+      let prefix = settings.twitchPrefix;
+      let isDevChannel = settings.guildId ? environment.discord.devGuildIds.includes(settings.guildId) : false;
+
+      if (prefix && message.startsWith(prefix) && (environment.production ? !isDevChannel : isDevChannel)) {
+        this.executeChatCommand(channelName, user, message, prefix);
       }
     } catch (error) {
       console.error(error);
@@ -73,31 +181,19 @@ export class TwitchService {
 
     let [cmd, ...args]: [TwitchCommandsList, string] = this.getCommandAndArgs(prefix, message);
 
-    commands.execute(cmd, chatClient, channel, user, args).catch(console.error);
+    commands.execute(cmd, chatClient, apiClient, channel, user, args).catch(console.error);
   }
-
-  /**
-   * Executes a discord chat command.
-   * @param msg discord message with the command to execute
-   */
-  // private executeChatCommand(msg: Discord.Message, prefix: string) {
-  //   let commands = new DiscordCommands();
-
-  //   let [cmd, ...args]: [CommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
-
-  //   commands.execute(cmd, msg, args).catch(console.error);
-  // }
 
   /**
    * getCommandAndArgs
    * @param prefix The bots prefix
    * @param message The string containing the command
    */
-  public getCommandAndArgs(prefix: string, message: string): any {
+  private getCommandAndArgs(prefix: string, message: string): any {
     let safePrefix = '';
     for (let i = 0; i < prefix.length; i++) {
       let char = prefix[i];
-      if (char === '\\' || char === '$') {
+      if (!char.match(/[a-z]|[0-9]/i)) {
         char = '\\' + char;
       }
       safePrefix += char;
@@ -108,36 +204,4 @@ export class TwitchService {
     commandAndArgs[0] = commandAndArgs[0].toLowerCase();
     return commandAndArgs;
   }
-}
-
-function refreshAuth(): Promise<any> {
-  return new Promise(async (resolve, reject) => {
-    fs.readFile('./environments/token.json').then(rawTokenData => {
-      let twitchEnv = environment.twitch;
-      let clientId = twitchEnv.clientId;
-      let clientSecret = twitchEnv.clientSecret;
-
-      let tokenData = JSON.parse(rawTokenData.toString());
-      let accessToken = tokenData.accessToken;
-      let refreshToken = tokenData.refreshToken;
-      let expiryTimestamp = tokenData.expiryTimestamp;
-
-      let auth = new RefreshableAuthProvider(new StaticAuthProvider(clientId, accessToken),
-        {
-          clientSecret,
-          refreshToken,
-          expiry: expiryTimestamp === null ? null : new Date(expiryTimestamp),
-          onRefresh: async ({ accessToken, refreshToken, expiryDate }) => {
-            let newTokenData = {
-              accessToken: accessToken,
-              refreshToken: refreshToken,
-              tokenExpiryTimestamp: expiryDate === null ? 0 : expiryDate.getTime()
-            };
-            await fs.writeFile('./environments/token.json', JSON.stringify(newTokenData, null, 4), 'utf-8');
-          }
-        }
-      );
-      resolve(auth);
-    }).catch(reject);
-  });
 }

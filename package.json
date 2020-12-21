@@ -5,9 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "npm run build:live",
-    "build": "tsc -p .",
-    "build:live": "nodemon src/index.ts"
+    "serve": "nodemon src/index.ts",
+    "build": "tsc -p ."
   },
   "nodemonConfig": {
     "ignore": [

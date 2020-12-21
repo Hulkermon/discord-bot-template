@@ -1,9 +1,8 @@
 import { DiscordCommandsList, DiscordCommands } from '../commands/discordCommands';
-import Discord, { Message } from 'discord.js';
-import { environment } from '../../environments/environment.dev';
+import Discord from 'discord.js';
+import { environment } from '../../environments/environment';
 import { SqliteService } from './sqliteService';
 
-let db = new SqliteService();
 
 export class DiscordService {
   /**
@@ -15,15 +14,13 @@ export class DiscordService {
       let client = new Discord.Client();
 
       this.setupEventHandlers(client);
-  
-      await client.login(environment.discord.botToken).catch(reject);
 
-      await db.connect().catch(reject);
+      await client.login(environment.discord.botToken).catch(reject);
 
       resolve();
     });
   }
-  
+
   /**
    * setupEventHandlers
    * sets up all the event handlers for a Discord Client.
@@ -35,7 +32,11 @@ export class DiscordService {
     });
 
     client.on('message', msg => {
-      this.handleMessage(msg);
+      try {
+        this.handleMessage(msg);
+      } catch (error) {
+        console.error(error);
+      }
     })
   }
 
@@ -44,31 +45,37 @@ export class DiscordService {
    * Handles the message.
    * @param msg The message to be handled.
    */
-  private async handleMessage(msg: Discord.Message) {
+  private async handleMessage(msg: Discord.Message): Promise<any> {
     if (msg.author.bot || !msg.guild) {
       // Ignore Messages by Bots
       // Only listen to messages in guilds
-      return;
+      return Promise.resolve();
     }
-    
-    let settings = (await db.getSettingsByGuildId(msg.guild.id));
-    let prefix = settings.discordPrefix;
-    let cmdChannelId = settings.CmdChannelId;
-    if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
-      this.executeChatCommand(msg, prefix);
-    }
+    return new Promise((resolve, reject) => {
+      let sqliteService = new SqliteService();
+      sqliteService.getSettingsByGuildId(msg.guild?.id).then(async settings => {
+        let prefix = settings.discordPrefix;
+        let cmdChannelId = settings.cmdChannelId;
+        if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
+          await this.executeChatCommand(msg, prefix);
+          resolve();
+        }
+      }).catch(reject);
+    })
   }
 
   /**
    * Executes a discord chat command.
    * @param msg discord message with the command to execute
    */
-  private executeChatCommand(msg: Discord.Message, prefix: string) {
-    let commands = new DiscordCommands();
+  private executeChatCommand(msg: Discord.Message, prefix: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let commands = new DiscordCommands();
 
-    let [cmd, ...args]: [DiscordCommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
+      let [cmd, ...args]: [DiscordCommandsList, string] = this.getCommandAndArgs(prefix, msg.content);
 
-    commands.execute(cmd, msg, args).catch(console.error);
+      commands.execute(cmd, msg, args).then(resolve).catch(reject);
+    });
   }
 
   /**
