@@ -92,7 +92,7 @@ export class DiscordService {
     let safePrefix = '';
     for (let i = 0; i < prefix.length; i++) {
       let char = prefix[i];
-      if (char === '\\' || char === '$') {
+      if (!char.match(/[a-z]|[0-9]/i)) {
         char = '\\' + char;
       }
       safePrefix += char;
