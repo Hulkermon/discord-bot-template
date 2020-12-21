@@ -54,11 +54,16 @@ export class DiscordService {
     return new Promise((resolve, reject) => {
       let sqliteService = new SqliteService();
       sqliteService.getSettingsByGuildId(msg.guild?.id).then(async settings => {
+        let prodGuildIds = environment.discord.prodGuildIds;
+        let devGuildIds = environment.discord.devGuildIds;
         let prefix = settings.discordPrefix;
         let cmdChannelId = settings.cmdChannelId;
-        if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
-          await this.executeChatCommand(msg, prefix);
-          resolve();
+        let prodEnvInProdServer = environment.production && settings.guildId && prodGuildIds.includes(settings.guildId);
+        let devEnvInDevServer = !environment.production && settings.guildId && devGuildIds.includes(settings.guildId);
+        if (prodEnvInProdServer || devEnvInDevServer) {
+          if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
+            await this.executeChatCommand(msg, prefix).catch(reject);
+          }
         }
       }).catch(reject);
     })
