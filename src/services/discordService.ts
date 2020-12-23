@@ -1,7 +1,8 @@
+import { Message } from 'discord.js';
 import { DiscordCommandsList, DiscordCommands } from '../commands/discordCommands';
 import Discord from 'discord.js';
 import { environment } from '../../environments/environment';
-import { SqliteService } from './sqliteService';
+import { SqliteService, GuildSettings } from './sqliteService';
 
 
 export class DiscordService {
@@ -45,28 +46,33 @@ export class DiscordService {
    * Handles the message.
    * @param msg The message to be handled.
    */
-  private async handleMessage(msg: Discord.Message): Promise<any> {
+  private async handleMessage(msg: Message) {
     if (msg.author.bot || !msg.guild) {
       // Ignore Messages by Bots
       // Only listen to messages in guilds
-      return Promise.resolve();
+      return;
     }
-    return new Promise((resolve, reject) => {
-      let sqliteService = new SqliteService();
-      sqliteService.getSettingsByGuildId(msg.guild?.id).then(async settings => {
-        let prodGuildIds = environment.discord.prodGuildIds;
-        let devGuildIds = environment.discord.devGuildIds;
-        let prefix = settings.discordPrefix;
-        let cmdChannelId = settings.cmdChannelId;
-        let prodEnvInProdServer = environment.production && settings.guildId && prodGuildIds.includes(settings.guildId);
-        let devEnvInDevServer = !environment.production && settings.guildId && devGuildIds.includes(settings.guildId);
-        if (prodEnvInProdServer || devEnvInDevServer) {
-          if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
-            await this.executeChatCommand(msg, prefix).catch(reject);
-          }
-        }
-      }).catch(reject);
-    })
+
+    let sqliteService = new SqliteService();
+    sqliteService.getSettingsByGuildId(msg.guild?.id).then(settings => {
+      if (environment.production && msg.guild && environment.discord.prodGuildIds.includes(msg.guild.id)) {
+        this.checkForActions(msg, settings);
+      } else if (!environment.production && msg.guild && environment.discord.devGuildIds.includes(msg.guild.id)) {
+        this.checkForActions(msg, settings);
+      }
+    }).catch(console.error);
+  }
+
+  private checkForActions(msg: Message, settings: GuildSettings) {
+    let prefix = settings.discordPrefix;
+    let cmdChannelId = settings.cmdChannelId;
+    try {
+      if ((prefix && msg.content.startsWith(prefix)) && (!cmdChannelId || cmdChannelId === msg.channel.id)) {
+        this.executeChatCommand(msg, prefix);
+      }
+    } catch (error) {
+      console.log('Error executing a command:', error);
+    }
   }
 
   /**
