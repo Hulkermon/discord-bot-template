@@ -71,7 +71,7 @@ export class DiscordService {
         this.executeChatCommand(msg, prefix);
       }
     } catch (error) {
-      console.log('Error executing a command:', error);
+      console.error('Error executing a command:', error);
     }
   }
 

@@ -140,7 +140,6 @@ export class TwitchCommands {
     }
 
     if (!cooldown) {
-      console.log('no cooldown set. allowing');
       return true;
     };
     if (lastExecution.timestamp <= now - cooldown) {
