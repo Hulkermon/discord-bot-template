@@ -19,8 +19,10 @@ export class TwitchService {
    */
   public setup(): Promise<any> {
     return new Promise(async (resolve, reject) => {
-      await this.startApiClient().catch(reject);
-      await this.startChatClient().catch(reject);
+      await Promise.all([
+        this.startChatClient(),
+        this.startApiClient(),
+      ]).catch(reject);
       this.setupEventHandlers(chatClient);
       console.log(`Logged into Twitch as ${environment.twitch.username}`);
       resolve();
