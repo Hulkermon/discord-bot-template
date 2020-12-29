@@ -66,10 +66,10 @@ export class SqliteService {
   /**
    * getSettingsByTwitchChannel
    * Retuns a twitch channels settings
-   * @param guildId The snowflake of the guild
+   * @param channel The Twitch Channel
    * @returns Current guild settings
    */
-  public getSettingsByTwitchChannel(channelName: string): Promise<GuildSettings> {
+  public getSettingsByTwitchChannel(channel: string): Promise<GuildSettings> {
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
         db.all('SELECT settings FROM settings', (err: any | null, rows: any[]) => {
@@ -80,15 +80,15 @@ export class SqliteService {
               let settings = null;
               rows.forEach(row => {
                 let rowSettings = JSON.parse(row.settings);
-                let channelNames: string[] = rowSettings.twitchChannels;
-                if (channelNames.includes(channelName)) {
+                let channelName: string = rowSettings.twitchChannel;
+                if (channelName === channel) {
                   settings = rowSettings;
                 }
               });
               if (settings) {
                 resolve(settings);
               } else {
-                reject(`No settings found for twitch channel "${channelName}"`);
+                reject(`No settings found for twitch channel "${channel}"`);
               }
             }
           }

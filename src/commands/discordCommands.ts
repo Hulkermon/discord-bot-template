@@ -232,7 +232,7 @@ export class DiscordCommands {
         infoEmbed.addField('***Commands Channel***', `<#${settings.cmdChannelId}>`);
       }
       if (settings.twitchChannel) {
-        infoEmbed.addField('***Connected Twitch channels***', `${settings.twitchChannel}`);
+        infoEmbed.addField('***Connected Twitch channel***', `${settings.twitchChannel}`);
       }
       msg.channel.send(infoEmbed).then(resolve).catch(reject);
     });
