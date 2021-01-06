@@ -1,9 +1,11 @@
-import { Message } from 'discord.js';
+import { Client, Guild, Message } from 'discord.js';
 import { DiscordCommandsList, DiscordCommands } from '../commands/discordCommands';
 import Discord from 'discord.js';
 import { environment } from '../../environments/environment';
 import { SqliteService, GuildSettings } from './sqliteService';
 
+
+let client: Client;
 
 export class DiscordService {
   /**
@@ -12,14 +14,21 @@ export class DiscordService {
    */
   public setup(): Promise<string> {
     return new Promise(async (resolve, reject) => {
-      let client = new Discord.Client();
-
-      this.setupEventHandlers(client);
-
+      client = new Discord.Client();
+      this.setupEventHandlers();
       await client.login(environment.discord.botToken).catch(reject);
-
       resolve();
     });
+  }
+
+  /**
+   * getClient
+   * Returns the Discord Guild, null if the Guild was not found
+   * This is for Discord actions outside of the Discord service
+   */
+  public getGuild(guildId: string): Guild | null {
+    let guild = client.guilds.resolve(guildId);
+    return guild || null;
   }
 
   /**
@@ -27,7 +36,7 @@ export class DiscordService {
    * sets up all the event handlers for a Discord Client.
    * @param client The client for which to setup the event handlers.
    */
-  private setupEventHandlers(client: Discord.Client) {
+  private setupEventHandlers() {
     client.on('ready', () => {
       console.log(`Logged into Discord as ${client.user?.tag}`);
     });
@@ -94,7 +103,7 @@ export class DiscordService {
    * @param prefix The bots prefix
    * @param message The string containing the command
    */
-  public getCommandAndArgs(prefix: string, message: string): any {
+  private getCommandAndArgs(prefix: string, message: string): any {
     let safePrefix = '';
     for (let i = 0; i < prefix.length; i++) {
       let char = prefix[i];
