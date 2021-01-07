@@ -31,7 +31,7 @@ type CommandInfo = {
 const devUserId = '220215888555540490';
 const botDevDiscordIconUrl = 'https://cdn.discordapp.com/avatars/220215888555540490/eeae2fcf085a425ccfe86771625c281e.png?size=128';
 
-const commandPermissions: CommandInfo[] = [
+const commandsInfos: CommandInfo[] = [
   { name: 'help', cooldownSeconds: 5, permissionLevel: PermissionLevel.member },
   { name: 'ping', cooldownSeconds: 5, permissionLevel: PermissionLevel.member },
   { name: 'prefix', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin },
@@ -44,6 +44,18 @@ const commandPermissions: CommandInfo[] = [
   { name: 'set', cooldownSeconds: 1, permissionLevel: PermissionLevel.developer },
 ];
 
+// Used to temporarily store who executed which command and at what time
+let commandUsages: [{
+  guildId: string | undefined,
+  members: [{
+    userId: string,
+    commands: [{
+      name: string,
+      timestamp: number,
+    }],
+  }],
+}];
+
 export class DiscordCommands {
 
   /**
@@ -55,7 +67,7 @@ export class DiscordCommands {
   public execute(command: DiscordCommandsList, msg: Message, args: string[]): Promise<any> {
     return new Promise(async (resolve, reject) => {
       try {
-        if (msg.member && this.checkPermission(msg.member, command)) {
+        if (msg.member && this.checkPermission(msg.member, command) && this.checkCooldown(msg, command)) {
           await this[command](msg, args);
         }
         resolve();
@@ -74,7 +86,7 @@ export class DiscordCommands {
    */
   private checkPermission(member: GuildMember, command: DiscordCommandsList): boolean {
     let authorAccessLevel: PermissionLevel;
-    let commandInfo = commandPermissions.find(c => c.name === command);
+    let commandInfo = commandsInfos.find(c => c.name === command);
 
     if (commandInfo === undefined) {
       return false;
@@ -91,6 +103,67 @@ export class DiscordCommands {
     }
 
     return authorAccessLevel <= commandInfo.permissionLevel;
+  }
+
+  /**
+   * checkCooldown
+   * Check if a command is still on cooldown
+   * @param msg The member trying to execute a command
+   * @param command The command to be checked
+   * @returns true if the cooldown time has passed
+   */
+  private checkCooldown(msg: Message, command: DiscordCommandsList): boolean {
+    let now = new Date().getTime() / 1000; // in seconds
+    let cooldown = commandsInfos.find(c => c.name === command.toString())?.cooldownSeconds;
+    let guild = commandUsages?.find(cu => cu.guildId === msg.guild?.id);
+    let member = guild?.members.find(m => m.userId === msg.author.id);
+    let lastExecution = member?.commands.find(cmd => cmd.name === command.toString());
+    if (!(guild && member && lastExecution)) {
+      if (!lastExecution) {
+        lastExecution = {
+          name: command.toString(),
+          timestamp: now,
+        };
+        if (member) {
+          member.commands.push(lastExecution);
+        }
+        else {
+          member = {
+            userId: msg.author.id,
+            commands: [lastExecution],
+          };
+          if (guild) {
+            guild.members.push(member);
+          } else {
+            guild = {
+              guildId: msg.guild?.id,
+              members: [member]
+            };
+            if (Array.isArray(commandUsages)) {
+              commandUsages.push(guild);
+            } else {
+              commandUsages = [guild];
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    if (!cooldown) return true;
+    if (lastExecution.timestamp <= now - cooldown) {
+      lastExecution.timestamp = now;
+      return true;
+    } else {
+      let remainingCooldown = lastExecution.timestamp + cooldown - now;
+      msg.channel.send(`${msg.author.toString()} Please wait ${Math.ceil(remainingCooldown)} Seconds`).catch(console.error);
+      return false;
+    }
+  }
+
+  private resetCooldown(guildId: string | undefined, memberId: string, command: DiscordCommandsList) {
+    let storedCommand = commandUsages.find(cu => cu.guildId === guildId)?.members.find(m => m.userId === memberId)?.commands.find(c => c.name === command);
+    if (storedCommand?.timestamp) storedCommand.timestamp = 0;
   }
 
   /**
