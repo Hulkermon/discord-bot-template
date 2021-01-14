@@ -3,9 +3,11 @@ import sqlite3 from "sqlite3";
 export type GuildSettings = {
   guildId?: string
   discordPrefix?: string,
+  modRoleId?: string,
   twitchPrefix?: string,
   cmdChannelId?: string,
-  twitchChannel?: string | null,
+  twitchChannel?: string,
+  logChannelId?: string,
 };
 
 export class SqliteService {
@@ -134,7 +136,6 @@ export class SqliteService {
         cmdChannelId: '',
         discordPrefix: 'temp!',
         twitchPrefix: '!',
-        twitchChannel: null,
       };
       db.run('INSERT INTO settings(guildId, settings) VALUES(?, ?)', [guildId, JSON.stringify(defaultSettings)], (err: Error | null) => {
         if (err) {

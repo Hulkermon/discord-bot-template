@@ -11,8 +11,6 @@ let chatClient: ChatClient;
 
 export class TwitchService {
 
-  constructor() {
-  }
   /**
    * setup
    * Connect the bot to the Twitch API and listen for events.
@@ -205,5 +203,31 @@ export class TwitchService {
     let commandAndArgs = message.split(new RegExp(regex)).splice(1);
     commandAndArgs[0] = commandAndArgs[0].toLowerCase();
     return commandAndArgs;
+  }
+
+  /**
+   * checkMod
+   * Checks if a user is mod of a channel
+   * @param channel The broadcasting channel
+   * @param user The user to check
+   */
+  public checkMod(channel: string, user: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      apiClient.helix.users.getUsersByNames([channel, user]).then(helixUsers => {
+        let broadcaster = helixUsers[0];
+        let viewer = helixUsers[1];
+        if (broadcaster && viewer) {
+          apiClient.helix.moderation.checkUserMod(broadcaster.id, viewer.id).then(isMod => {
+            if (isMod) {
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          }).catch(reject);
+        } else {
+          resolve(false);
+        }
+      }).catch(reject);
+    })
   }
 }

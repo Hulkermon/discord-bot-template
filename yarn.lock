@@ -2255,7 +2255,7 @@ twitch-common@^4.4.0:
     "@d-fischer/logger" "^3.1.0"
     tslib "^2.0.3"
 
-twitch@^4.3.2:
+twitch@^4.4.0:
   version "4.4.0"
   resolved "https://registry.yarnpkg.com/twitch/-/twitch-4.4.0.tgz#f46d4992736413d760ae02d82f9c1e642806d350"
   integrity sha512-98uFiZFtiHEt6lFhyS1Jhl1lz8yD+ognd0cHiqI98WZ991SDMZMS6XPeudJIX8gwar/hFWivoskNH2KtSda+Uw==

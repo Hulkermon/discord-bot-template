@@ -23,12 +23,11 @@ export class DiscordService {
 
   /**
    * getClient
-   * Returns the Discord Guild, null if the Guild was not found
-   * This is for Discord actions outside of the Discord service
+   * Returns the Discord Client
+   * (Used for things like resolving Snowflakes to usernames)
    */
-  public getGuild(guildId: string): Guild | null {
-    let guild = client.guilds.resolve(guildId);
-    return guild || null;
+  public getClient(): Discord.Client {
+    return client;
   }
 
   /**

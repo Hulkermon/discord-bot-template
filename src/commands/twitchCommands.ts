@@ -1,5 +1,12 @@
 import { ChatClient } from 'twitch-chat-client';
 import { ApiClient } from 'twitch/lib';
+import { SqliteService } from '../services/sqliteService';
+import { TwitchService } from '../services/twitchService';
+import { DiscordService } from '../services/discordService';
+import { MessageEmbed, TextChannel } from 'discord.js';
+
+let sqliteService = new SqliteService();
+let discordService = new DiscordService();
 
 export const enum TwitchCommandsList {
   ping = 'ping',
@@ -17,14 +24,15 @@ type CommandInfo = {
   name: string,
   cooldownSeconds?: number,
   permissionLevel: PermissionLevel,
+  log: boolean,
 };
 
 
 const devUser = 'hulkermon';
 
 const commandsInfos: CommandInfo[] = [
-  { name: 'ping', permissionLevel: PermissionLevel.mod },
-  { name: 'help', cooldownSeconds: 30, permissionLevel: PermissionLevel.viewer },
+  { name: 'ping', permissionLevel: PermissionLevel.mod, log: false },
+  { name: 'help', cooldownSeconds: 30, permissionLevel: PermissionLevel.viewer, log: false },
 ];
 
 // Used to temporarily store who executed which command and at what time
@@ -50,7 +58,8 @@ export class TwitchCommands {
   public execute(command: TwitchCommandsList, chatClient: ChatClient, apiClient: ApiClient, channel: string, username: string, args: string[]): Promise<any> {
     return new Promise(async (resolve, reject) => {
       try {
-        if (await this.checkPermission(apiClient, command, username, channel) && this.checkCooldown(chatClient, channel, username, command)) {
+        if ((await this.checkPermission(username, channel, command) as boolean) && this.checkCooldown(chatClient, channel, username, command)) {
+          await this.checkLog(apiClient, channel, username, command, args);
           await this[command](chatClient, apiClient, channel, username, args);
         }
         resolve();
@@ -67,30 +76,67 @@ export class TwitchCommands {
    * @param command
    * @returns true if the user has permission to use the command, false if not
    */
-  private checkPermission(apiClient: ApiClient, command: TwitchCommandsList, user: string, channel: string): Promise<boolean> {
+  private checkPermission(user: string, channel: string, command?: TwitchCommandsList): Promise<boolean | PermissionLevel> {
     let userAccessLevel: PermissionLevel;
     let commandInfo = commandsInfos.find(c => c.name === command);
+    let twitchService = new TwitchService()
 
     return new Promise(async (resolve, reject) => {
-      if (commandInfo === undefined) reject(`checkPermission: Command ${command} not found`);
-      else {
-        if (user === devUser) {
-          userAccessLevel = PermissionLevel.developer;
-        } else if (user === channel) {
-          userAccessLevel = PermissionLevel.broadcaster;
-        } else if (commandInfo.permissionLevel === PermissionLevel.mod) {
-          if (await this.checkMod(apiClient, channel, user).catch(reject)) {
-            userAccessLevel = PermissionLevel.mod;
-          }
+      if (user.toLowerCase() === devUser) {
+        userAccessLevel = PermissionLevel.developer;
+      } else if (user === channel) {
+        userAccessLevel = PermissionLevel.broadcaster;
+      } else if ((commandInfo && commandInfo.permissionLevel === PermissionLevel.mod) || !command) {
+        if (await twitchService.checkMod(channel, user).catch(reject)) {
+          userAccessLevel = PermissionLevel.mod;
         }
-        if (userAccessLevel === undefined) {
-          userAccessLevel = PermissionLevel.viewer;
-        }
+      }
+      if (userAccessLevel === undefined) {
+        userAccessLevel = PermissionLevel.viewer;
+      }
 
-
+      if (commandInfo) {
         resolve(userAccessLevel <= commandInfo.permissionLevel);
+      } else {
+        resolve(userAccessLevel);
       }
     })
+  }
+
+  /**
+   * checkLog
+   * Checkes if a command execution should be logged and does so if needed
+   * @param message The Discord Message
+   * @param command The command executed
+   */
+  private checkLog(apiClient: ApiClient, channel: string, username: string, command: TwitchCommandsList, args: string[]): Promise<any> {
+    return new Promise(async (resolve, reject) => {
+      let commandInfo = commandsInfos.find(c => c.name === command);
+      if (commandInfo?.log) {
+        try {
+          let settings = await sqliteService.getSettingsByTwitchChannel(channel);
+          if (settings.logChannelId) {
+            let logChannel = discordService.getClient().guilds.resolve(settings.guildId || '')?.channels.resolve(settings.logChannelId);
+            if (logChannel && ((logChannel): logChannel is TextChannel => logChannel.type === 'text')(logChannel)) {
+              let user = await apiClient.helix.users.getUserByName(username);
+              if (user) {
+                let message = settings.twitchPrefix + command.toString() + args.join(' ');
+                let logEmbed = new MessageEmbed()
+                  .setAuthor(user.name, user.profilePictureUrl)
+                  .setDescription(`**Command sent on Twitch**`)
+                  .addField(`Message`, message);
+                await logChannel.send(logEmbed).catch(reject);
+              }
+            }
+          }
+          resolve();
+        } catch (error) {
+          reject(`checkLog: ${error}`);
+        }
+      } else {
+        resolve();
+      }
+    });
   }
 
   /**
