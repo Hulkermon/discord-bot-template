@@ -10,4 +10,4 @@ Built with node.
 4. Create environment directory and add said files
 
 ## Running the bot
-Run `npm run serve`
+Run `yarn run serve`
