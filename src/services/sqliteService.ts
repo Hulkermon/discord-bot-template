@@ -50,13 +50,14 @@ export class SqliteService {
       } else {
         this.getGuildsDb().then(db => {
           db.all('SELECT settings FROM settings WHERE (guildId = ?)', [guildId], (err: any | null, rows: any[]) => {
+            db.close();
             if (err) {
               reject(err);
             } else {
               if (rows[0]) {
                 resolve(JSON.parse(rows[0].settings));
               } else {
-                this.createGuildSettingsById(guildId, db).then(resolve).catch(reject);
+                this.createGuildSettingsById(guildId).then(resolve).catch(reject);
               }
             }
           });
@@ -129,21 +130,28 @@ export class SqliteService {
    * @param db The database to insert the settings into
    * @returns Promise with default guild settings
    */
-  private createGuildSettingsById(guildId: string, db: sqlite3.Database): Promise<GuildSettings> {
-    return new Promise((resolve, reject) => {
-      let defaultSettings: GuildSettings = {
-        guildId: guildId,
-        cmdChannelId: '',
-        discordPrefix: 'temp!',
-        twitchPrefix: '!',
-      };
-      db.run('INSERT INTO settings(guildId, settings) VALUES(?, ?)', [guildId, JSON.stringify(defaultSettings)], (err: Error | null) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(defaultSettings);
-        }
-      });
+  private createGuildSettingsById(guildId: string): Promise<GuildSettings> {
+    let defaultSettings: GuildSettings = {
+      guildId: guildId,
+      cmdChannelId: '',
+      discordPrefix: 'temp!',
+      twitchPrefix: '!',
+    };
+
+    return new Promise(async (resolve, reject) => {
+      try {
+        let db = await this.getGuildsDb();
+        db.run('INSERT INTO settings(guildId, settings) VALUES(?, ?)', [guildId, JSON.stringify(defaultSettings)], (err: Error | null) => {
+          db.close();
+          if (err) {
+            reject(err);
+          } else {
+            resolve(defaultSettings);
+          }
+        });
+      } catch (error) {
+        reject(`createGuildSettingsById: ${error}`);
+      }
     });
   }
 
