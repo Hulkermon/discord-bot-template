@@ -50,6 +50,7 @@ export class TwitchService {
       sqliteService.getGuildsDb().then(db => {
         let allChannels: string[] = [];
         db.all('SELECT settings FROM settings', (err: Error | null, rows: any[]) => {
+          db.close();
           if (err) {
             reject(err);
           } else {

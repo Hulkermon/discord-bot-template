@@ -76,6 +76,7 @@ export class SqliteService {
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
         db.all('SELECT settings FROM settings', (err: any | null, rows: any[]) => {
+          db.close();
           if (err) {
             reject(err);
           } else {
@@ -113,6 +114,7 @@ export class SqliteService {
         let newSettings = Object.assign(oldSettings, settings);
         let newSettingsString = JSON.stringify(newSettings);
         db.run('UPDATE settings SET settings = ? WHERE guildId = ?', [newSettingsString, guildId], (err: any | null) => {
+          db.close();
           if (err) {
             reject(err);
           } else {
@@ -179,12 +181,12 @@ export class SqliteService {
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
         db.run('CREATE TABLE IF NOT EXISTS settings (guildId TEXT PRIMARY KEY, settings TEXT)', [], (err: Error | null) => {
+          db.close();
           if (err) {
             reject(err);
           } else {
             resolve();
           }
-          db.close();
         });
       }).catch(reject);
     });
@@ -199,12 +201,12 @@ export class SqliteService {
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
         db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, guildId TEXT NOT NULL, discordId TEXT, twitchName TEXT, points INTEGER NOT NULL)', [], (err: Error) => {
+          db.close();
           if (err) {
             reject(err);
           } else {
             resolve();
           }
-          db.close();
         });
       }).catch(reject);
     });
