@@ -19,8 +19,6 @@ export const enum DiscordCommandsList {
   settwitch = 'settwitch',
   cmdchannel = 'cmdchannel',
   logchannel = 'logchannel',
-  get = 'get',
-  set = 'set',
 };
 
 const enum PermissionLevel {
@@ -460,38 +458,5 @@ export class DiscordCommands {
         resolve(res);
       }).catch(reject);
     })
-  }
-
-  /**
-   * get
-   * Gets the value of a key from the local database
-   */
-  private get(msg: Message, args: string[]): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-      let key = args[0];
-      sqliteService.getValue(msg.guild?.id, key).then(value => {
-        msg.channel.send(`**${key}**\n\`${value}\``).then(resolve).catch(reject);
-      }).catch(e => {
-        if (typeof e === 'string') {
-          msg.channel.send(e).then(resolve).catch(reject);
-        } else {
-          reject(e);
-        }
-      });
-    });
-  }
-
-  /**
-   * set
-   * Sets the value of a key on the local database
-   */
-  private set(msg: Message, args: string[]): Promise<any> {
-    let value: string = args.slice(1).join(' ');
-
-    return new Promise(async (resolve, reject) => {
-      sqliteService.setValue(msg.guild?.id, args[0], value).then(res => {
-        msg.channel.send(res).then(resolve).catch(reject);
-      }).catch(reject);
-    });
   }
 }
