@@ -7,7 +7,7 @@ Built with node.
 2. Download & Install [yarn](https://classic.yarnpkg.com/en/docs/install/)
 2. Run `yarn`
 3. Get environment files from Hulkermon#1337
-4. Create environment directory and add said files
+4. Create `environment` directory and add said files
 
 ## Running the bot
 Run `yarn run serve`
