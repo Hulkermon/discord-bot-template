@@ -4,9 +4,7 @@ export type GuildSettings = {
   guildId?: string
   discordPrefix?: string,
   modRoleId?: string,
-  twitchPrefix?: string,
   cmdChannelId?: string,
-  twitchChannel?: string,
   logChannelId?: string,
 };
 
@@ -67,41 +65,6 @@ export class SqliteService {
   }
 
   /**
-   * getSettingsByTwitchChannel
-   * Retuns a twitch channels settings
-   * @param channel The Twitch Channel
-   * @returns Current guild settings
-   */
-  public getSettingsByTwitchChannel(channel: string): Promise<GuildSettings> {
-    return new Promise((resolve, reject) => {
-      this.getGuildsDb().then(db => {
-        db.all('SELECT settings FROM settings', (err: any | null, rows: any[]) => {
-          db.close();
-          if (err) {
-            reject(err);
-          } else {
-            if (rows[0]) {
-              let settings = null;
-              rows.forEach(row => {
-                let rowSettings = JSON.parse(row.settings);
-                let channelName: string = rowSettings.twitchChannel;
-                if (channelName === channel) {
-                  settings = rowSettings;
-                }
-              });
-              if (settings) {
-                resolve(settings);
-              } else {
-                reject(`No settings found for twitch channel "${channel}"`);
-              }
-            }
-          }
-        });
-      }).catch(reject);
-    });
-  }
-
-  /**
    * setSettingsByGuildId
    * Sets the new Guild Specific settings
    * @param guildId snowflake of the guild
@@ -137,7 +100,6 @@ export class SqliteService {
       guildId: guildId,
       cmdChannelId: '',
       discordPrefix: 'temp!',
-      twitchPrefix: '!',
     };
 
     return new Promise(async (resolve, reject) => {
@@ -200,7 +162,7 @@ export class SqliteService {
   private createUsersTable(): Promise<any> {
     return new Promise((resolve, reject) => {
       this.getGuildsDb().then(db => {
-        db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, guildId TEXT NOT NULL, discordId TEXT, twitchName TEXT, points INTEGER NOT NULL)', [], (err: Error) => {
+        db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, guildId TEXT NOT NULL, discordId TEXT, points INTEGER NOT NULL)', [], (err: Error) => {
           db.close();
           if (err) {
             reject(err);

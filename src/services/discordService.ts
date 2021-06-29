@@ -35,7 +35,7 @@ export class DiscordService {
    * sets up all the event handlers for a Discord Client.
    * @param client The client for which to setup the event handlers.
    */
-  private setupEventHandlers() {
+  private async setupEventHandlers() {
     client.on('ready', () => {
       console.log(`Logged into Discord as ${client.user?.tag}`);
     });

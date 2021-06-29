@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "serve": "nodemon src/index.ts",
-    "build": "tsc -p ."
+    "build": "tsc -p .",
+    "registerCommands": "tsc registerCommands.ts && node registerCommands.js && rm registerCommands.js"
   },
   "nodemonConfig": {
     "ignore": [
@@ -38,14 +39,12 @@
     "erlpack": "^0.1.3",
     "libsodium-wrappers": "^0.7.8",
     "sqlite3": "^5.0.0",
-    "twitch": "^4.4.0",
-    "twitch-auth": "^4.3.2",
-    "twitch-chat-client": "^4.3.2",
     "utf-8-validate": "^5.0.3",
     "zlib-sync": "^0.1.7"
   },
   "devDependencies": {
     "@types/node": "^14.14.10",
+    "@types/request": "^2.48.5",
     "@types/sqlite3": "^3.1.6",
     "jasmine-core": "^3.6.0",
     "node-gyp": "^7.1.2",

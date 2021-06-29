@@ -1,6 +1,5 @@
 import { GuildSettings, SqliteService } from '../services/sqliteService';
 import { GuildMember, Message, MessageEmbed, TextChannel } from "discord.js";
-import { TwitchService } from '../services/twitchService';
 
 let sqliteService = new SqliteService();
 
@@ -14,9 +13,7 @@ export const enum DiscordCommandsList {
 
   // Admin commands
   prefix = 'prefix',
-  twitchprefix = 'twitchprefix',
   mod = 'mod',
-  settwitch = 'settwitch',
   cmdchannel = 'cmdchannel',
   logchannel = 'logchannel',
 };
@@ -44,9 +41,7 @@ const commandsInfos: CommandInfo[] = [
   { name: 'ping', cooldownSeconds: 5, permissionLevel: PermissionLevel.member, log: true },
   { name: 'info', cooldownSeconds: 5, permissionLevel: PermissionLevel.moderator, log: false },
   { name: 'prefix', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: false },
-  { name: 'twitchprefix', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: false },
   { name: 'mod', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: false },
-  { name: 'settwitch', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: false },
   { name: 'commandschannel', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: false },
   { name: 'cmdchannel', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: false },
   { name: 'logchannel', cooldownSeconds: 1, permissionLevel: PermissionLevel.admin, log: true },
@@ -245,9 +240,7 @@ export class DiscordCommands {
           { name: '*cmdChannel [#text-channel]*', value: `Sets where the bot listens for commands.\n\`${settings.discordPrefix}cmdChannel off\` to disable` },
           { name: '*logChannel [#text-channel]*', value: `Logs certain command executions.\n\`${settings.discordPrefix}logChannel off\` to disable` },
           { name: '*prefix [newPrefix]*', value: 'Changes the bots prefix' },
-          { name: '*twitchPrefix [newPrefix]*', value: 'Changes the bots prefix on Twitch' },
           { name: '*mod [@modRole]*', value: 'Sets the moderator role' },
-          { name: '*setTwitch [twitchChannel]*', value: 'Sets where the bot will listen on Twitch' },
         );
       }
       msg.channel.send(helpEmbed).then(resolve).catch(reject);
@@ -290,25 +283,6 @@ export class DiscordCommands {
   }
 
   /**
-   * prefix
-   * Sets the bots prefix on twitch
-   */
-  private twitchprefix(msg: Message, args: string[]): Promise<any> {
-    return new Promise((resolve, reject) => {
-      if (!args[0]) {
-        msg.channel.send('Please provide a prefix')
-          .then(() => { resolve('no prefix defined') })
-          .catch(reject);
-      } else {
-        let newSettings: GuildSettings = { twitchPrefix: args[0] };
-        sqliteService.setSettingsByGuildId(msg.guild?.id, newSettings).then(res => {
-          msg.channel.send(`prefix changed to \`${args[0]}\``).then(() => resolve(res)).catch(reject);
-        }).catch(reject);
-      }
-    });
-  }
-
-  /**
    * mod
    * Sets the moderator role
    */
@@ -334,36 +308,6 @@ export class DiscordCommands {
   }
 
   /**
-   * settwitch
-   * Sets the twitch channel the bot listens to
-   */
-  private settwitch(msg: Message, args: string[]): Promise<any> {
-    let twitchService = new TwitchService();
-    return new Promise((resolve, reject) => {
-      if (!args[0]) {
-        msg.channel.send('Please provide a Twitch channel')
-          .then(() => { resolve('no Twitch channel defined') })
-          .catch(reject);
-      } else {
-        let newSettings: GuildSettings;
-        let confirmationString = '';
-        if (args[0].toLowerCase() === 'off') {
-          newSettings = { twitchChannel: undefined }
-          confirmationString = `Twitch channel disabled`;
-        } else {
-          newSettings = { twitchChannel: args[0] }
-          confirmationString = `Twitch channel set to \`${args[0]}\``;
-        }
-        sqliteService.setSettingsByGuildId(msg.guild?.id, newSettings).then(async res => {
-          await twitchService.setup().catch(reject);
-          await msg.channel.send(confirmationString).catch(reject);
-          resolve();
-        }).catch(reject);
-      }
-    });
-  }
-
-  /**
    * info
    * Posts some general infos about the bot
    */
@@ -375,14 +319,10 @@ export class DiscordCommands {
         .setTitle('Info')
         .addFields(
           { name: '***Discord prefix***', value: `\`${settings.discordPrefix}\``, inline: true },
-          { name: '***Twitch prefix***', value: `\`${settings.twitchPrefix}\``, inline: true },
         )
         .setFooter('Coded with <3 by Hulkermon#1337', botDevDiscordIconUrl);
       if (settings.cmdChannelId) {
         infoEmbed.addField('***Commands Channel***', `<#${settings.cmdChannelId}>`);
-      }
-      if (settings.twitchChannel) {
-        infoEmbed.addField('***Connected Twitch channel***', `[${settings.twitchChannel}](https://twitch.tv/${settings.twitchChannel})`);
       }
       msg.channel.send(infoEmbed).then(resolve).catch(reject);
     });
