@@ -1,5 +1,6 @@
 # discord-bot-template
-Template for Discord Bots by Hulkermon.    
+Template for Discord Bots by Hulkermon.  
+A Twitch bot is also included for free!  
 Built with node.
 
 ## Installation
