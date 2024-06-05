@@ -7,7 +7,7 @@ Built with node.
 1. Download [Node.js](https://nodejs.org/en/)
 2. Download & Install [yarn](https://classic.yarnpkg.com/en/docs/install/)
 2. Run `yarn`
-3. Get environment files from @hulkermon via Discord (or create them yourself)
+3. Get environment files from @hulkermon via Discord (or create them yourself at `./environments/environment.ts`)
 4. Create `environment` directory and add said files
 
 ## Running the bot
